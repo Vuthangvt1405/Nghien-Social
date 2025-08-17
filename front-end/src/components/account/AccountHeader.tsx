@@ -20,12 +20,11 @@ const AccountHeader: React.FC<AccountHeaderProps> = ({
   isEditable = false,
   username,
 }) => {
-  const { data } = useQuery({
-    queryFn: () => getUserStat(username),
-    queryKey: ["userStat", profileData.id],
+  const { data: statsData } = useQuery({
+    queryKey: ["userStat", username],
+    queryFn: () => getUserStat(username!).then((res) => res.data),
+    enabled: !!username,
   });
-
-  console.log(data);
   return (
     <div className="relative mb-6 overflow-hidden bg-white rounded-lg shadow-lg">
       {/* Cover Image Section */}
@@ -40,7 +39,7 @@ const AccountHeader: React.FC<AccountHeaderProps> = ({
           />
         ) : (
           <img
-            src={profileData.cover || "/default-cover.jpg"}
+            src={profileData.cover || images.coverDefault}
             alt="Cover"
             className="object-cover w-full h-full"
           />
@@ -81,7 +80,7 @@ const AccountHeader: React.FC<AccountHeaderProps> = ({
               />
             ) : (
               <img
-                src={profileData.avatar || "/default-avatar.png"}
+                src={profileData.avatar || images.avatarDemo}
                 alt="Avatar"
                 className="object-cover w-32 h-32 border-4 border-white rounded-full shadow-lg"
               />
@@ -107,15 +106,21 @@ const AccountHeader: React.FC<AccountHeaderProps> = ({
             {/* Quick Stats */}
             <div className="flex gap-6 mt-4 md:mt-0">
               <div className="text-center">
-                <div className="text-2xl font-bold text-gray-900">125</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {statsData?.post_count ?? 0}
+                </div>
                 <div className="text-sm text-gray-500">Posts</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-gray-900">1.2K</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {statsData?.follower_count ?? 0}
+                </div>
                 <div className="text-sm text-gray-500">Followers</div>
               </div>
               <div className="text-center">
-                <div className="text-2xl font-bold text-gray-900">89</div>
+                <div className="text-2xl font-bold text-gray-900">
+                  {statsData?.following_count ?? 0}
+                </div>
                 <div className="text-sm text-gray-500">Following</div>
               </div>
             </div>

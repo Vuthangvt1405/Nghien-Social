@@ -149,3 +149,13 @@ export const getUserStat = async (username: string) => {
   const response = await userAPI.get(`/users/stats?username=${username}`);
   return response;
 };
+
+export const getPostsByUsername = async (username: string) => {
+  const response = await userAPI.get(`/posts/username/${username}`);
+  return response;
+};
+
+export const getProfileByUsername = async (username: string) => {
+  const response = await userAPI.get(`/users/profile/${username}`);
+  return response;
+};
