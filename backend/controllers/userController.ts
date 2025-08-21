@@ -77,6 +77,8 @@ export const loginUser = async (
       return;
     }
 
+    console.log(123);
+
     const userResponse = {
       ...user,
       token: Token.generateToken({
@@ -106,7 +108,7 @@ export async function loginUserGoogle(
   next: NextFunction
 ) {
   try {
-    const token = req.headers.authorization?.split(" ")[1];
+    const token = req.headers["x-google-token"] as string;
     if (!token) {
       res.status(400).json({ message: "Google token is required" });
       return;
@@ -115,18 +117,19 @@ export async function loginUserGoogle(
     //find if user already exist
     console.log(user);
     const existingUser = await User.findOne(undefined, user.email);
+    console.log("Existing user:", existingUser);
     if (existingUser) {
       res.status(200).json({
-        ...user,
+        ...existingUser,
         token: Token.generateToken({
           id: existingUser.id,
-          email: user.email,
-          avatar: user.avatar,
-          cover: user.cover,
-          username: user.username,
-          description: user.description,
-          admin: user.admin,
-          type: user.type,
+          email: existingUser.email,
+          avatar: existingUser.avatar,
+          cover: existingUser.cover,
+          username: existingUser.username,
+          description: existingUser.description,
+          admin: existingUser.admin,
+          type: existingUser.type,
         }),
         refreshToken: Token.generateRefreshToken({
           id: user.id,
@@ -197,7 +200,7 @@ export const updateUser = async (
       return;
     }
 
-    if (username) user.username = username || user.username;
+    if (username) user.username = username || user.username.trim();
     if (password) user.password = await PasswordUtils.hashPassword(password);
     if (avatar) user.avatar = avatar || user.avatar;
     if (cover) user.cover = cover || user.cover;
@@ -245,151 +248,89 @@ export const uploadAvatar = async (
   req: RequestExtendUser,
   res: Response,
   next: NextFunction
-) => {
+): Promise<void> => {
+  // Khai báo rõ ràng kiểu trả về là Promise<void>
   try {
-    const storage = multer.memoryStorage();
-    const upload = multer({
-      storage,
-      limits: {
-        fileSize: 128 * 1024 * 1024, // 128MB limit
+    // 1. Xác thực rằng middleware đã cung cấp file
+    if (!req.file) {
+      res.status(400).json({ message: "No file was uploaded." });
+      return; // Dùng return rỗng để thoát khỏi hàm
+    }
+
+    // 2. Xác thực các biến môi trường
+    const uploadFreeHost = process.env.UPLOAD_FREE_HOST_URL;
+    const apiKeyFreeHost = process.env.UPLOAD_FREE_HOST_API_KEY;
+
+    if (!uploadFreeHost || !apiKeyFreeHost) {
+      console.error("Upload service URL or API key is not configured.");
+      res.status(500).json({ message: "Server upload is not configured." });
+      return; // Dùng return rỗng để thoát khỏi hàm
+    }
+
+    // 3. Chuẩn bị form data cho API bên ngoài
+    const formData = new FormData();
+    formData.append("key", apiKeyFreeHost);
+    formData.append("source", req.file.buffer.toString("base64"));
+    formData.append("format", "json");
+
+    // 4. Tải ảnh lên dịch vụ bên ngoài
+    const response = await fetch(uploadFreeHost, {
+      method: "POST",
+      body: formData as any,
+      headers: formData.getHeaders(),
+    });
+
+    const responseData = await response.json();
+
+    if (!response.ok) {
+      const errorMessage =
+        responseData?.error?.message ||
+        responseData?.status_txt ||
+        "Failed to upload to external service";
+      // Tạo một lỗi mới để được bắt bởi middleware xử lý lỗi
+      throw new Error(
+        `External API Error: ${response.status} - ${errorMessage}`
+      );
+    }
+
+    const imageUrl = responseData.image?.url;
+    if (!imageUrl) {
+      throw new Error(
+        "Image URL not found in the response from the external service."
+      );
+    }
+
+    // 5. Cập nhật bản ghi người dùng trong cơ sở dữ liệu
+    const user = await User.findOne(req.user?.id);
+    if (!user) {
+      res.status(404).json({ message: "User not found." });
+      return; // Dùng return rỗng để thoát khỏi hàm
+    }
+
+    user.avatar = imageUrl; // <-- Điểm khác biệt chính: cập nhật trường 'avatar'
+    await user.save();
+
+    // 6. Phản hồi với dữ liệu người dùng đã được cập nhật và một token mới
+    res.status(200).json({
+      message: "Avatar uploaded successfully!",
+      payload: {
+        ...user,
+        // Tạo một token mới với URL avatar đã được cập nhật
+        token: Token.generateToken({
+          id: user.id,
+          email: user.email,
+          avatar: user.avatar, // Đã được cập nhật
+          cover: user.cover,
+          username: user.username,
+          description: user.description,
+          admin: user.admin,
+          type: user.type,
+        }),
       },
-      fileFilter: (req, file, cb) => {
-        if (file.mimetype.startsWith("image/")) {
-          cb(null, true);
-        } else {
-          cb(new Error("Only image files are allowed"));
-        }
-      },
-    }).single("source");
-
-    upload(req, res, async (err) => {
-      if (err) {
-        console.error("❌ Multer error:", err);
-        return res
-          .status(500)
-          .json({ message: "Upload error", error: err.message });
-      }
-
-      if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
-      }
-
-      console.log("✅ Image received:");
-      console.log("Filename:", req.file.originalname);
-      console.log("MIME Type:", req.file.mimetype);
-      console.log("Size:", req.file.size, "bytes");
-
-      const uploadFreeHost = process.env.UPLOAD_FREE_HOST_URL;
-      const apiKeyFreeHost = process.env.UPLOAD_FREE_HOST_API_KEY;
-
-      if (!uploadFreeHost || !apiKeyFreeHost) {
-        return res.status(500).json({
-          message: "Upload host or API key not configured",
-        });
-      }
-
-      try {
-        // Convert buffer to base64
-        const base64Image = req.file.buffer.toString("base64");
-
-        const formData: FormDataType = new FormData();
-        formData.append("key", apiKeyFreeHost);
-        formData.append("action", "upload");
-        formData.append("format", "json");
-        formData.append("source", base64Image); // Send as base64 data URI
-
-        console.log("Uploading to:", uploadFreeHost);
-        console.log("Using API key:", apiKeyFreeHost.substring(0, 8) + "...");
-        try {
-          const response = await fetch(uploadFreeHost, {
-            method: "POST",
-            body: formData as any,
-            headers: {
-              ...formData.getHeaders(),
-              Connection: "close",
-            },
-          });
-
-          // Log response details for debugging
-          const responseText = await response.text();
-          console.log("Response status:", response.status);
-          console.log("Response body:", responseText);
-
-          if (!response.ok) {
-            // Try to parse error details from freeimage.host
-            try {
-              const errorInfo = JSON.parse(responseText);
-              throw new Error(
-                `External service error: ${response.status} - ${
-                  errorInfo.error?.message ||
-                  errorInfo.status_txt ||
-                  response.statusText
-                }`
-              );
-            } catch (parseError) {
-              throw new Error(
-                `External service error: ${response.status} ${response.statusText} - ${responseText}`
-              );
-            }
-          }
-
-          const data = JSON.parse(responseText);
-          console.log("✅ Image uploaded to external service successfully");
-
-          // You can access the uploaded image URL from the response
-          const imageUrl = data.image?.url;
-          //store avatar in the user profile
-          if (req.user?.id && imageUrl) {
-            const user = await User.findOne(req.user.id);
-            if (user) {
-              user.avatar = imageUrl;
-              await user.save();
-              res.status(200).json({
-                message: "Image uploaded successfully",
-                payload: {
-                  ...user,
-                  token: Token.generateToken({
-                    id: user.id,
-                    email: user.email,
-                    avatar: user.avatar,
-                    cover: user.cover,
-                    username: user.username,
-                    description: user.description,
-                    admin: user.admin,
-                    type: user.type,
-                  }),
-                },
-              });
-            } else {
-              console.warn("User not found");
-              res.status(404).json({ message: "User not found" });
-            }
-          } else {
-            console.warn("User not found or image URL is missing");
-            return res.status(400).json({
-              message: "User not found or image URL is missing",
-            });
-          }
-        } catch (fetchError) {
-          console.error("❌ Fetch error:", fetchError);
-          res.status(500).json({
-            message: "Failed to upload to external service",
-            error:
-              fetchError instanceof Error
-                ? fetchError.message
-                : "Unknown error",
-          });
-        }
-      } catch (error) {
-        next(error);
-      }
     });
   } catch (error) {
-    console.error("❌ Error in uploadAvatar:", error);
-    res.status(500).json({
-      message: "Error uploading avatar",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
+    // Chuyển tiếp bất kỳ lỗi nào đến middleware xử lý lỗi tập trung của bạn
+    next(error);
   }
 };
 
@@ -399,149 +340,86 @@ export const uploadCover = async (
   next: NextFunction
 ) => {
   try {
-    const storage = multer.memoryStorage();
-    const upload = multer({
-      storage,
-      limits: {
-        fileSize: 128 * 1024 * 1024, // 128MB limit
+    // 1. Validate that the middleware provided a file
+    if (!req.file) {
+      res.status(400).json({ message: "No file was uploaded." });
+      return;
+    }
+
+    // 2. Validate environment variables
+    const uploadFreeHost = process.env.UPLOAD_FREE_HOST_URL;
+    const apiKeyFreeHost = process.env.UPLOAD_FREE_HOST_API_KEY;
+
+    if (!uploadFreeHost || !apiKeyFreeHost) {
+      // It's better to log this issue on the server
+      console.error("Upload service URL or API key is not configured.");
+      res.status(500).json({ message: "Server upload is not configured." });
+      return;
+    }
+
+    // 3. Prepare form data for the external API
+    const formData = new FormData();
+    formData.append("key", apiKeyFreeHost);
+    formData.append("source", req.file.buffer.toString("base64"));
+    formData.append("format", "json");
+
+    // 4. Upload to the external service
+    const response = await fetch(uploadFreeHost, {
+      method: "POST",
+      body: formData as any,
+      headers: formData.getHeaders(),
+    });
+
+    const responseData = await response.json();
+
+    if (!response.ok) {
+      const errorMessage =
+        responseData?.error?.message ||
+        responseData?.status_txt ||
+        "Failed to upload to external service";
+      // Create a new error to be caught by the error handler
+      throw new Error(
+        `External API Error: ${response.status} - ${errorMessage}`
+      );
+    }
+
+    const imageUrl = responseData.image?.url;
+    if (!imageUrl) {
+      throw new Error(
+        "Image URL not found in the response from the external service."
+      );
+    }
+
+    // 5. Update the user record in the database
+    const user = await User.findOne(req.user?.id);
+    if (!user) {
+      res.status(404).json({ message: "User not found." });
+      return;
+    }
+
+    user.cover = imageUrl;
+    await user.save();
+
+    // 6. Respond with the updated user data and a new token
+    res.status(200).json({
+      message: "Cover image uploaded successfully!",
+      payload: {
+        ...user,
+        // Generate a new token with the updated cover URL
+        token: Token.generateToken({
+          id: user.id,
+          email: user.email,
+          avatar: user.avatar,
+          cover: user.cover, // Now updated
+          username: user.username,
+          description: user.description,
+          admin: user.admin,
+          type: user.type,
+        }),
       },
-      fileFilter: (req, file, cb) => {
-        if (file.mimetype.startsWith("image/")) {
-          cb(null, true);
-        } else {
-          cb(new Error("Only image files are allowed"));
-        }
-      },
-    }).single("source");
-
-    upload(req, res, async (err) => {
-      if (err) {
-        console.error("❌ Multer error:", err);
-        return res
-          .status(500)
-          .json({ message: "Upload error", error: err.message });
-      }
-
-      if (!req.file) {
-        return res.status(400).json({ message: "No file uploaded" });
-      }
-
-      console.log("✅ Image received:");
-      console.log("Filename:", req.file.originalname);
-      console.log("MIME Type:", req.file.mimetype);
-      console.log("Size:", req.file.size, "bytes");
-
-      const uploadFreeHost = process.env.UPLOAD_FREE_HOST_URL;
-      const apiKeyFreeHost = process.env.UPLOAD_FREE_HOST_API_KEY;
-
-      if (!uploadFreeHost || !apiKeyFreeHost) {
-        return res.status(500).json({
-          message: "Upload host or API key not configured",
-        });
-      }
-
-      try {
-        // Convert buffer to base64
-        const base64Image = req.file.buffer.toString("base64");
-
-        const formData: FormDataType = new FormData();
-        formData.append("key", apiKeyFreeHost);
-        formData.append("action", "upload");
-        formData.append("format", "json");
-        formData.append("source", base64Image); // Send as base64 data URI
-
-        console.log("Uploading to:", uploadFreeHost);
-        console.log("Using API key:", apiKeyFreeHost.substring(0, 8) + "...");
-        try {
-          const response = await fetch(uploadFreeHost, {
-            method: "POST",
-            body: formData as any,
-            headers: {
-              ...formData.getHeaders(),
-              Connection: "close",
-            },
-          });
-
-          // Log response details for debugging
-          const responseText = await response.text();
-          console.log("Response status:", response.status);
-          console.log("Response body:", responseText);
-
-          if (!response.ok) {
-            // Try to parse error details from freeimage.host
-            try {
-              const errorInfo = JSON.parse(responseText);
-              throw new Error(
-                `External service error: ${response.status} - ${
-                  errorInfo.error?.message ||
-                  errorInfo.status_txt ||
-                  response.statusText
-                }`
-              );
-            } catch (parseError) {
-              throw new Error(
-                `External service error: ${response.status} ${response.statusText} - ${responseText}`
-              );
-            }
-          }
-
-          const data = JSON.parse(responseText);
-          console.log("✅ Image uploaded to external service successfully");
-
-          // You can access the uploaded image URL from the response
-          const imageUrl = data.image?.url;
-          //store avatar in the user profile
-          if (req.user && req.user.id && imageUrl) {
-            const user = await User.findOne(req.user.id);
-            if (user) {
-              user.cover = imageUrl;
-              await user.save();
-              res.status(200).json({
-                message: "Image uploaded successfully",
-                payload: {
-                  ...user,
-                  token: Token.generateToken({
-                    id: user.id,
-                    email: user.email,
-                    avatar: user.avatar,
-                    cover: user.cover,
-                    username: user.username,
-                    description: user.description,
-                    admin: user.admin,
-                    type: user.type,
-                  }),
-                },
-              });
-            } else {
-              console.warn("User not found");
-              res.status(404).json({ message: "User not found" });
-            }
-          } else {
-            console.warn("User not found or image URL is missing");
-            return res.status(400).json({
-              message: "User not found or image URL is missing",
-            });
-          }
-        } catch (fetchError) {
-          console.error("❌ Fetch error:", fetchError);
-          res.status(500).json({
-            message: "Failed to upload to external service",
-            error:
-              fetchError instanceof Error
-                ? fetchError.message
-                : "Unknown error",
-          });
-        }
-      } catch (error) {
-        next(error);
-      }
     });
   } catch (error) {
-    console.error("❌ Error in uploadAvatar:", error);
-    res.status(500).json({
-      message: "Error uploading avatar",
-      error: error instanceof Error ? error.message : "Unknown error",
-    });
+    next(error);
   }
 };
 
@@ -552,13 +430,18 @@ export const getUserProfileByUsername = async (
 ) => {
   try {
     const { username } = req.params;
-    console.log("Fetching user profile for username:", username);
-    const user = await User.findOne(undefined, undefined, username);
+    console.log("Fetching user profile for username (raw):", username);
+    const decodedUsername = decodeURIComponent(username).trim();
+    console.log(
+      "Fetching user profile for username (decoded):",
+      decodedUsername
+    );
+    const user = await User.findOne(undefined, undefined, `${decodedUsername}`);
     if (!user) {
       res.status(404).json({ message: "User not found" });
       return;
     }
-    const { email, password, type, ...info } = user;
+    const { password, type, ...info } = user;
     res.status(200).json(info);
   } catch (err) {
     next(err);
@@ -573,10 +456,12 @@ export const changePassword = async (
   try {
     const { newPassword } = req.body;
     const userId = req.user?.id;
-    if (!userId) {
+    if (!userId || userId == undefined) {
       res.status(401).json({ message: "User not authenticated" });
       return;
     }
+
+    console.log("Changing password for user ID:", userId);
 
     const user = await User.findOne(userId);
     if (!user) {
@@ -598,7 +483,7 @@ export const handleFollowUser = async (
   next: NextFunction
 ) => {
   try {
-    const { id } = req.params;
+    const { username } = req.params;
     const userId = req.user?.id;
 
     const user = await User.findOne(Number(userId));
@@ -606,9 +491,15 @@ export const handleFollowUser = async (
       res.status(401).json({ message: "cannot authenticate user" });
       return;
     }
-    console.log(user.id);
-    await user.followUser(Number(id));
-    res.status(200).json({ message: `you has been followd ${id}` });
+
+    const userToFollow = await User.findOne(undefined, undefined, username);
+    if (!userToFollow) {
+      res.status(404).json({ message: "User to follow not found" });
+      return;
+    }
+
+    await user.followUser(Number(userToFollow.id));
+    res.status(200).json({ message: `you has been followd ${username}` });
   } catch (err) {
     next(err);
   }

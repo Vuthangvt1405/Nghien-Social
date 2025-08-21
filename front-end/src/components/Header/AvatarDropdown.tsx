@@ -2,6 +2,7 @@ import { useDispatch, useSelector } from "react-redux";
 import { Link } from "react-router-dom";
 import type { RootState } from "../../store/store";
 import { logout } from "../../store/user/userSlice";
+import images from "../../constants";
 
 type DropdownOption = {
   label: string;
@@ -9,7 +10,7 @@ type DropdownOption = {
 };
 
 type AvatarDropdownProps = {
-  avatarSrc: string;
+  avatarSrc?: string | null;
   options: DropdownOption[];
 };
 
@@ -29,9 +30,9 @@ const AvatarDropdown: React.FC<AvatarDropdownProps> = ({
     <div className="relative inline-block group">
       {/* Avatar Image */}
       <img
-        src={avatarSrc}
+        src={avatarSrc || images.avatarDemo}
         alt="avatar"
-        className="w-10 h-10 transition duration-300 border-2 border-orange-400 rounded-full shadow-md cursor-pointer group-hover:scale-105"
+        className="object-cover w-10 h-10 transition duration-300 border-2 border-orange-400 rounded-full shadow-md cursor-pointer group-hover:scale-105"
       />
 
       {/* Triangle Pointer */}

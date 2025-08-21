@@ -11,10 +11,14 @@ import {
   getPostByUsername,
 } from "../controllers/postController";
 import { authMiddleware } from "../middlewares/authMiddleware";
+import { paginationMiddleware } from "../middlewares/paginationMiddleware";
 
 const router = express.Router();
 //get all post
-router.route("/").post(authMiddleware, createPost).get(getAllPosts);
+router
+  .route("/")
+  .post(authMiddleware, createPost)
+  .get(paginationMiddleware, getAllPosts);
 
 //find post by slug (use in front end) to search for posts
 //this is used to get all posts with the same slug

@@ -62,6 +62,7 @@ export class User {
     }
 
     const user = rows[0];
+    console.log("User found:", user);
     return new User(
       user.username,
       user.email,
@@ -72,7 +73,7 @@ export class User {
       user.description,
       user.id,
       user.admin,
-      user.verify
+      user.verified
     );
   }
 
@@ -134,13 +135,14 @@ export class User {
     }
 
     const [result] = await pool.query(
-      "UPDATE users SET username = ?, email = ?, password = ?, avatar = ?, cover = ? WHERE id = ?",
+      "UPDATE users SET username = ?, email = ?, password = ?, avatar = ?, cover = ?, description = ? WHERE id = ?",
       [
         this.username,
         this.email,
         this.password,
         this.avatar || "",
         this.cover || "",
+        this.description || "",
         this.id,
       ]
     );

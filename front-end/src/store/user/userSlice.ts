@@ -185,17 +185,17 @@ import {
   createAsyncThunk,
   type PayloadAction,
 } from "@reduxjs/toolkit";
-import { fetchProfile } from "../../api/Client";
+import { userService } from "../../api/Client";
 import Cookies from "js-cookie";
 import images from "../../constants";
 import { decodeJWT } from "../../utils/Crypto";
 
 export interface UserState {
-  id: string;
+  id: number;
   username: string;
   email: string;
-  avatar: string;
-  cover: string;
+  avatar: string | null;
+  cover: string | null;
   admin: boolean;
   description: string;
   loading: boolean;
@@ -205,11 +205,11 @@ export interface UserState {
 }
 
 const initialState: UserState = {
-  id: "",
+  id: 0,
   username: "",
   email: "",
   avatar: images.avatarDemo,
-  cover: "",
+  cover: null,
   admin: false,
   description: "",
   loading: false,
@@ -219,17 +219,17 @@ const initialState: UserState = {
 };
 
 // Lấy trực tiếp profile từ API (không qua cookie / decode)
-export const fetchUserProfile = createAsyncThunk(
+export const fetchUserProfile = createAsyncThunk<Partial<UserState>>(
   "user/fetchProfile",
   async (_: void, { rejectWithValue }) => {
     try {
       const authToken = Cookies.get("authToken");
       if (!authToken) throw new Error("No auth token found");
       const username = decodeJWT(authToken)?.username;
-      const response = await fetchProfile(username);
+      const response = await userService.fetchProfile(username);
       console.log("API Response:", response);
       // Giả định server trả về response.data = { id, username, email, avatar, cover, admin, description }
-      return response.data;
+      return response.data as Partial<UserState>;
     } catch (err: unknown) {
       let message = "Không thể tải thông tin người dùng";
       if (err instanceof Error) message = err.message;
@@ -244,19 +244,19 @@ const userSlice = createSlice({
   reducers: {
     setUser: (state, action: PayloadAction<Partial<UserState>>) => {
       const u = action.payload;
-      state.id = u.id ?? state.id;
-      state.username = u.username ?? state.username;
-      state.email = u.email ?? state.email;
-      state.avatar = u.avatar ?? state.avatar ?? images.avatarDemo;
-      state.cover = u.cover ?? state.cover;
-      state.admin = u.admin ?? state.admin;
-      state.description = u.description ?? state.description;
-      state.verified = u.verified ?? state.verified;
+      if (u.id !== undefined) state.id = u.id;
+      if (u.username !== undefined) state.username = u.username;
+      if (u.email !== undefined) state.email = u.email;
+      if (u.avatar !== undefined) state.avatar = u.avatar;
+      if (u.cover !== undefined) state.cover = u.cover;
+      if (u.admin !== undefined) state.admin = u.admin;
+      if (u.description !== undefined) state.description = u.description;
+      if (u.verified !== undefined) state.verified = u.verified;
       state.isAuthenticated = true;
       state.error = null;
     },
     clearUser: (state) => {
-      state.id = "";
+      state.id = 0;
       state.username = "";
       state.email = "";
       state.avatar = images.avatarDemo;
@@ -267,7 +267,7 @@ const userSlice = createSlice({
       state.error = null;
     },
     logout: (state) => {
-      state.id = "";
+      state.id = 0;
       state.username = "";
       state.email = "";
       state.avatar = images.avatarDemo;
@@ -290,7 +290,7 @@ const userSlice = createSlice({
         (state, action: PayloadAction<Partial<UserState>>) => {
           state.loading = false;
           const u = action.payload ?? {};
-          state.id = u.id ?? "";
+          state.id = u.id as number;
           state.username = u.username ?? "";
           state.email = u.email ?? "";
           state.avatar = u.avatar ?? images.avatarDemo;

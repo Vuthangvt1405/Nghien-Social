@@ -268,6 +268,7 @@ const DetailPost = () => {
   }
 
   const post = processedPost!;
+  console.log(post);
   const isPostLocked = post.isLocked === 1;
   const isAdmin = post.admin === 1;
 

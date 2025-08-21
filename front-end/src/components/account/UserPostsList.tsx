@@ -1,6 +1,6 @@
 import React from "react";
 import { useQuery } from "@tanstack/react-query";
-import { getPostsByUsername } from "../../api/Client";
+import { postService } from "../../api/Client";
 import PostCard from "../PostCard/PostCard"; // Assuming you have a PostCard component
 
 interface Post {
@@ -32,7 +32,8 @@ const UserPostsList: React.FC<UserPostsListProps> = ({ username }) => {
     isError,
   } = useQuery({
     queryKey: ["userPosts", username],
-    queryFn: () => getPostsByUsername(username).then((res) => res.data),
+    queryFn: () =>
+      postService.getPostsByUsername(username).then((res) => res.data),
     enabled: !!username,
   });
 

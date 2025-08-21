@@ -231,6 +231,94 @@ ORDER BY p.created_at DESC;
     return result;
   }
 
+  static async getPostsByUsernameAndReactionByUser(
+    username: string,
+    userId: number
+  ) {
+    const sql = `SELECT 
+    p.id, 
+    p.ownerId, 
+    p.title, 
+    p.caption, 
+    p.content, 
+    p.slug,
+    p.cover, 
+    p.isLocked, 
+    p.created_at, 
+    p.updated_at,
+    u.username as owner, 
+    u.email,
+    u.avatar, 
+    u.admin,
+    COUNT(CASE WHEN pr_all.reaction = 1 THEN 1 END) as total_likes,
+    COUNT(CASE WHEN pr_all.reaction = 0 THEN 1 END) as total_dislikes,
+    -- Reaction của user hiện tại cho bài post này
+    MAX(CASE WHEN pr_user.user_id = ? THEN pr_user.reaction END) as user_reaction,
+    -- Thời gian user react (nếu có)
+    MAX(CASE WHEN pr_user.user_id = ? THEN pr_user.created_at END) as user_reaction_time,
+    -- JSON format của reaction user hiện tại
+    CASE 
+        WHEN MAX(pr_user.reaction) IS NOT NULL 
+        THEN JSON_OBJECT(
+            'user_id', ?,
+            'reaction', MAX(pr_user.reaction),
+            'created_at', MAX(pr_user.created_at)
+        )
+        ELSE NULL 
+    END as current_user_reaction_json
+FROM posts p
+JOIN users u ON p.ownerId = u.id
+LEFT JOIN post_reactions pr_all ON pr_all.post_id = p.id  -- Tất cả reactions để đếm
+LEFT JOIN post_reactions pr_user ON pr_user.post_id = p.id AND pr_user.user_id = ?  -- Chỉ reaction của user hiện tại
+WHERE u.username = ?
+GROUP BY 
+    p.id, p.ownerId, p.title, p.caption, p.content, p.slug, p.cover, p.isLocked, 
+    p.created_at, p.updated_at, u.username, u.email, u.avatar, u.admin
+ORDER BY p.created_at DESC;
+`;
+
+    const values = [userId, userId, userId, userId, username];
+    const [result] = await pool.execute(sql, values);
+    return result;
+  }
+
+  static async getPostAndReaction(postId: number, userId: number) {
+    const sql = `SELECT 
+    p.id, 
+    p.ownerId, 
+    p.title, 
+    p.caption, 
+    p.content, 
+    p.slug,
+    p.cover, 
+    p.isLocked, 
+    p.created_at, 
+    p.updated_at,
+    u.username as owner, 
+    u.email,
+    u.avatar, 
+    u.admin,
+    COUNT(CASE WHEN pr_all.reaction = 1 THEN 1 END) as total_likes,
+    COUNT(CASE WHEN pr_all.reaction = 0 THEN 1 END) as total_dislikes,
+    MAX(CASE WHEN pr_user.user_id = ? THEN pr_user.reaction END) as user_reaction
+FROM posts p
+JOIN users u ON p.ownerId = u.id
+LEFT JOIN post_reactions pr_all ON pr_all.post_id = p.id
+LEFT JOIN post_reactions pr_user ON pr_user.post_id = p.id AND pr_user.user_id = ?
+WHERE p.id = ?
+GROUP BY 
+    p.id, p.ownerId, p.title, p.caption, p.content, p.slug, p.cover, p.isLocked, 
+    p.created_at, p.updated_at, u.username, u.email, u.avatar, u.admin;
+`;
+
+    const values = [userId, userId, postId];
+    const [rows]: any[] = await pool.execute(sql, values);
+    if (rows.length === 0) {
+      throw new Error("Post not found");
+    }
+    return rows[0];
+  }
+
   static findAll = async (): Promise<Post[]> => {
     // Simulate database retrieval logic
     let sql = `SELECT 

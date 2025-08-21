@@ -1,7 +1,11 @@
 import React, { useState, useCallback, useEffect } from "react";
 import images from "../../constants";
 import toast, { Toaster } from "react-hot-toast";
-import { login, loginUserGoogle } from "../../api/Client";
+import * as ClientApi from "../../api/Client";
+
+// Example implementation for ClientApi.login
+// This function should send a POST request to your backend login endpoint
+// and return a promise with the response (including token if successful).
 import Cookies from "js-cookie";
 import { Link, useNavigate } from "react-router-dom";
 import {
@@ -9,7 +13,7 @@ import {
   type GoogleCredentialResponse,
 } from "@react-oauth/google";
 import { useDispatch, useSelector } from "react-redux";
-import { fetchUserProfile } from "../../store/user/userSlice";
+import { fetchUserProfile, setUser } from "../../store/user/userSlice";
 import { type AppDispatch, type RootState } from "../../store/store";
 
 interface FormLogin {
@@ -151,15 +155,15 @@ const Login: React.FC = () => {
       setServerError("");
 
       try {
-        const toastId = toast.loading("Signing you in...");
-
-        const result = await login({
+        const result = await ClientApi.userService.login({
           email: formData.email.trim(),
           password: formData.password,
         });
 
+        console.log(result);
+
         // Lưu token vào cookie
-        const token = result.data?.token;
+        const token = result.data.user?.token;
         if (token) {
           Cookies.set("authToken", token, { expires: 7 }); // Lưu trong 7 ngày
         }
@@ -212,17 +216,22 @@ const Login: React.FC = () => {
     credentialResponse: GoogleCredentialResponse
   ) => {
     try {
+      console.log("Google login response:", credentialResponse);
       const toastId = toast.loading("Signing in with Google...");
-      const result = await loginUserGoogle(credentialResponse);
+      const result = await ClientApi.userService.loginUserGoogle(
+        credentialResponse
+      );
+      const user = result.data;
+      const token = result.data.token || user?.token;
 
-      // Lưu token vào cookie
-      const token = result.data?.token;
+      if (user) {
+        console.log(user);
+        dispatch(setUser(user));
+      }
+
       if (token) {
         Cookies.set("authToken", token, { expires: 7 });
       }
-
-      // Fetch user profile to update Redux state
-      await dispatch(fetchUserProfile()).unwrap();
 
       toast.dismiss(toastId);
       toast.success("Google login successful!");

@@ -15,6 +15,7 @@ import {
   verifyOTP,
 } from "../controllers";
 import { authMiddleware } from "../middlewares/authMiddleware";
+import { upload } from "../utility/Multer";
 
 const router = express.Router();
 
@@ -23,8 +24,12 @@ router.route("/").get(getAllUsers);
 //get another profile but not update
 router.route("/profile/:username").get(getUserProfileByUsername);
 
-router.route("/upload-avatar").post(authMiddleware, uploadAvatar);
-router.route("/upload-cover").post(authMiddleware, uploadCover);
+router
+  .route("/upload-avatar")
+  .post(authMiddleware, upload.single("source"), uploadAvatar);
+router
+  .route("/upload-cover")
+  .post(authMiddleware, upload.single("source"), uploadCover);
 
 router.route("/sign-up").post(createUser);
 
@@ -42,7 +47,7 @@ router.route("/change-password").patch(authMiddleware, changePassword);
 router.route("/stats").get(userStats);
 
 //follow another user
-router.route("/follow/:id").post(authMiddleware, handleFollowUser);
+router.route("/follow/:username").post(authMiddleware, handleFollowUser);
 
 //send and verified user account (email)
 router.route("/OTP/:type/send").post(sendOTPVerified);

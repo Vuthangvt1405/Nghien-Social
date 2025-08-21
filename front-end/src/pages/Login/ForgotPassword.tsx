@@ -7,7 +7,7 @@ import React, {
 } from "react";
 import images from "../../constants";
 import toast, { Toaster } from "react-hot-toast";
-import { sendOTPEmail, verifyOTPEmail, changePassword } from "../../api/Client";
+import { userService } from "../../api/Client";
 import Cookies from "js-cookie";
 import { Link, useNavigate } from "react-router-dom";
 
@@ -363,7 +363,7 @@ const ForgotPassword: React.FC = () => {
       try {
         showToast("loading", "Sending OTP code...");
 
-        await sendOTPEmail(emailData.email.trim());
+        await userService.sendOTPEmail(emailData.email.trim());
 
         showToast("success", "OTP code sent to your email!", {
           duration: 4000,
@@ -415,12 +415,13 @@ const ForgotPassword: React.FC = () => {
       try {
         showToast("loading", "Verifying OTP...");
 
-        const response = await verifyOTPEmail(
+        const response = await userService.verifyOTPEmail(
           emailData.email.trim(),
           parseInt(otpData.otp)
         );
 
-        setCredential(response.data.credential);
+        const data = response.data as { credential: string };
+        setCredential(data.credential);
 
         showToast("success", "OTP verified successfully!", { duration: 3000 });
 
@@ -472,7 +473,7 @@ const ForgotPassword: React.FC = () => {
       try {
         showToast("loading", "Changing password...");
 
-        await changePassword(passwordData.newPassword, credential);
+        await userService.changePassword(passwordData.newPassword, credential);
 
         showToast("success", "Password changed successfully!", {
           duration: 3000,
@@ -517,7 +518,7 @@ const ForgotPassword: React.FC = () => {
     try {
       showToast("loading", "Resending OTP...");
 
-      await sendOTPEmail(emailData.email.trim());
+      await userService.sendOTPEmail(emailData.email.trim());
 
       showToast("success", "New OTP code sent!", { duration: 4000 });
       setCountdown(60);

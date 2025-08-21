@@ -32,7 +32,7 @@ export const authMiddleware = async (
         admin: Boolean(user.admin),
       };
     } else {
-      req.user = undefined;
+      throw new Error("Invalid token");
     }
     next();
   } catch (error) {

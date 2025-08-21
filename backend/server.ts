@@ -5,9 +5,10 @@ import { errorHandler } from "./middlewares";
 import { tokenRouter } from "./routes/tokenRoute";
 import { adminMiddleware } from "./middlewares/adminMiddleware";
 import { adminRouter } from "./routes/admin/setAdminRoute";
-import nodemailer from "nodemailer";
 import dotenv from "dotenv";
 dotenv.config();
+import { cloneUpload, uploadPictureGetUrl } from "./controllers";
+import { upload } from "./utility/Multer";
 
 const app = express();
 
@@ -24,6 +25,7 @@ app.use(
       "X-Requested-With",
       "Accept",
       "Origin",
+      "x-google-token",
     ],
   })
 );
@@ -66,6 +68,9 @@ app.use(
 
 //admin router
 app.use("/api/admin", adminMiddleware, adminRouter);
+
+// up image and get url
+app.post("/api/getUrl", uploadPictureGetUrl);
 
 // Importing routes
 // user router

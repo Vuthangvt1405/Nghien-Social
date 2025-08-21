@@ -11,8 +11,6 @@ const PostCard = ({ item }) => {
   const [userReaction, setUserReaction] = useState(item.user_reaction); // 1: like, 0: dislike, null: no reaction
 
   const handleLike = async () => {
-    //check if user has already liked or disliked
-    //cookie check
     const token = document.cookie
       .split("; ")
       .find((row) => row.startsWith("authToken="))
@@ -22,28 +20,39 @@ const PostCard = ({ item }) => {
       window.location.href = `${import.meta.env.VITE_URL_BASE_WEB}/login`;
       return;
     }
-    if (userReaction === 1) {
-      setUserReaction(null);
-      await likePost(item.id);
-      setLikes(likes - 1);
-    } else {
-      setUserReaction(1);
-      await likePost(item.id);
-      setLikes(likes + 1);
-      if (userReaction === 0) setDislikes(dislikes - 1);
+
+    try {
+      const response = await likePost(item.id);
+      const updatedPost = response.data.post;
+      setLikes(updatedPost.total_likes);
+      setDislikes(updatedPost.total_dislikes);
+      setUserReaction(updatedPost.user_reaction);
+    } catch (error) {
+      console.error("Failed to like the post:", error);
+      // Optionally, show an error message to the user
     }
   };
 
   const handleDislike = async () => {
-    if (userReaction === 0) {
-      setUserReaction(null);
-      await dislikePost(item.id);
-      setDislikes(dislikes - 1);
-    } else {
-      setUserReaction(0);
-      await dislikePost(item.id);
-      setDislikes(dislikes + 1);
-      if (userReaction === 1) setLikes(likes - 1);
+    const token = document.cookie
+      .split("; ")
+      .find((row) => row.startsWith("authToken="))
+      ?.split("=")[1];
+
+    if (!token) {
+      window.location.href = `${import.meta.env.VITE_URL_BASE_WEB}/login`;
+      return;
+    }
+
+    try {
+      const response = await dislikePost(item.id);
+      const updatedPost = response.data.post;
+      setLikes(updatedPost.total_likes);
+      setDislikes(updatedPost.total_dislikes);
+      setUserReaction(updatedPost.user_reaction);
+    } catch (error) {
+      console.error("Failed to dislike the post:", error);
+      // Optionally, show an error message to the user
     }
   };
 

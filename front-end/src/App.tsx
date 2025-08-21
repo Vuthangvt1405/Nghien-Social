@@ -6,6 +6,7 @@ import { Routes, Route } from "react-router-dom";
 import type { ReactElement, ComponentType } from "react";
 import { fetchUserProfile } from "./store/user/userSlice";
 import { type AppDispatch } from "./store/store";
+import { Toaster } from "react-hot-toast";
 import "./App.css";
 
 interface RouteConfig {
@@ -42,6 +43,7 @@ const App = () => {
   return (
     <div>
       <Routes>{renderRoute(routePage)}</Routes>
+      <Toaster />
     </div>
   );
 };

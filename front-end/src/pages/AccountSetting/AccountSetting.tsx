@@ -1,47 +1,30 @@
-import { useState, useEffect } from "react";
-import { useDispatch, useSelector } from "react-redux";
+import { useState } from "react";
 import { useParams } from "react-router-dom";
-import { useQuery } from "@tanstack/react-query";
 import Layout from "../../components/Layout";
 import AccountHeader from "../../components/account/AccountHeader";
 import AccountNavigation from "../../components/account/AccountNavigation";
 import ProfileSettings from "../../components/account/ProfileSettings";
 import SecuritySettings from "../../components/account/SecuritySettings";
 import UserPostsList from "../../components/account/UserPostsList";
-import { setUser, fetchUserProfile } from "../../store/user/userSlice";
 import type { AccountSection } from "../../types/accountSettings";
-import {
-  updateProfile,
-  uploadCoverUser,
-  uploadAvtarUser,
-  getProfileByUsername,
-} from "../../api/Client";
-import type { RootState, AppDispatch } from "../../store/store";
+import { useUserProfile } from "../../hooks/userHooks";
 
 export default function AccountSetting() {
-  const dispatch = useDispatch<AppDispatch>();
   const { username } = useParams<{ username: string }>();
-  const loggedInUser = useSelector((state: RootState) => state.user);
-
   const {
-    data: profileData,
+    profileData,
+    editableData,
     isLoading,
     isError,
-  } = useQuery({
-    queryKey: ["profile", username],
-    queryFn: () => getProfileByUsername(username!).then((res) => res.data),
-    enabled: !!username,
-  });
+    isUploading,
+    isOwnProfile,
+    handleCoverChange,
+    handleAvatarChange,
+  } = useUserProfile(username);
 
-  console.log("Profile Data:", profileData);
-
-  const [editableData, setEditableData] = useState(profileData);
   const [activeSection, setActiveSection] = useState<
     "profile" | "security" | string
   >("profile");
-  const [isUploading, setIsUploading] = useState(false);
-
-  const isOwnProfile = loggedInUser.username === username;
 
   const accountSections: AccountSection[] = [
     { id: "profile", label: "Profile", icon: "", component: ProfileSettings },
@@ -53,59 +36,6 @@ export default function AccountSetting() {
       badge: 1,
     },
   ];
-
-  const handleSubmtUpdateUserProfile = async () => {
-    if (!isOwnProfile) return;
-    dispatch(setUser(editableData));
-    const newProfile = await updateProfile({
-      username: editableData?.username,
-      description: editableData?.description,
-    });
-    dispatch(setUser(newProfile.user));
-    console.log("Update successfully");
-  };
-
-  useEffect(() => {
-    if (profileData) {
-      setEditableData(profileData);
-    }
-  }, [profileData]);
-
-  const createPreviewUrl = (file: File) => URL.createObjectURL(file);
-
-  const handleCoverChange = async (file: File) => {
-    if (!editableData) return;
-    setIsUploading(true);
-    try {
-      const preview = createPreviewUrl(file);
-      setEditableData({ ...editableData, cover: preview });
-      const res = await uploadCoverUser(file);
-      if (res.data?.cover) {
-        dispatch(fetchUserProfile());
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsUploading(false);
-    }
-  };
-
-  const handleAvatarChange = async (file: File) => {
-    if (!editableData) return;
-    setIsUploading(true);
-    try {
-      const preview = createPreviewUrl(file);
-      setEditableData({ ...editableData, avatar: preview });
-      const res = await uploadAvtarUser(file);
-      if (res.data?.payload.avatar) {
-        dispatch(fetchUserProfile());
-      }
-    } catch (e) {
-      console.error(e);
-    } finally {
-      setIsUploading(false);
-    }
-  };
 
   const ActiveSectionComponent =
     accountSections.find((s) => s.id === activeSection)?.component ??
@@ -186,19 +116,7 @@ export default function AccountSetting() {
               onSectionChange={setActiveSection}
             />
             <div className="min-h-[500px]">
-              <ActiveSectionComponent
-                profileData={editableData}
-                onProfileDataChange={setEditableData}
-              />
-            </div>
-            <div className="fixed z-50 bottom-6 right-6">
-              <button
-                onClick={handleSubmtUpdateUserProfile}
-                disabled={isUploading}
-                className="flex items-center gap-2 px-6 py-3 text-white transition bg-orange-500 rounded-full shadow-lg hover:bg-orange-600 disabled:opacity-50"
-              >
-                <span>💾</span>Save Changes
-              </button>
+              <ActiveSectionComponent profileData={editableData} />
             </div>
           </>
         ) : (

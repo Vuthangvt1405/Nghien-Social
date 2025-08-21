@@ -453,14 +453,26 @@ export class UserVerification implements IUserVerification {
         AND verification_type = '${type}'
 `;
     //found user
-    const user = await User.findOne(undefined, email);
+    const user = await User.findOne(undefined, email, undefined);
     if (!user) {
       throw new Error("User not found");
     }
     const [rows]: any = await pool.execute(query, [user.id, token]);
+
     if (rows.length === 0) {
       throw new Error("Invalid OTP");
     }
+
+    const checkVerifiedUserQuery = `UPDATE users 
+set verified = 1
+where id = ?`;
+
+    await pool.execute(checkVerifiedUserQuery, [user.id]);
+
+    const deleteTokenQuery = `DELETE FROM user_verification
+WHERE user_id = ? AND verification_token = ?`;
+    await pool.execute(deleteTokenQuery, [user.id, token]);
+
     return user;
   }
 

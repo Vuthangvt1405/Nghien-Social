@@ -9,7 +9,8 @@ import ForgotPassword from "../pages/Login/ForgotPassword";
 
 interface RouteConfig {
   path: string;
-  component: ComponentType;
+  component: ComponentType<any>;
+  isProtected?: boolean;
   children?: Array<RouteConfig>;
 }
 
@@ -27,8 +28,9 @@ export const routePage: Array<RouteConfig> = [
     component: Login,
   },
   {
-    path: "/createpost",
+    path: "/submit",
     component: CreatePost,
+    isProtected: true,
   },
   {
     path: "/post/:slug",

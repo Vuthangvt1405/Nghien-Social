@@ -1,13 +1,14 @@
 import React, { useState, useCallback, useEffect } from "react";
 import images from "../../constants";
 import toast, { Toaster } from "react-hot-toast";
-import { loginUserGoogle, register } from "../../api/Client";
+import userService from "../../api/userService";
 import { Link, useNavigate } from "react-router-dom";
 import Cookies from "js-cookie";
 import {
   GoogleLogin,
   type GoogleCredentialResponse,
 } from "@react-oauth/google";
+import { register } from "module";
 
 interface FormData {
   username: string;
@@ -52,7 +53,7 @@ const Register: React.FC = () => {
   ) => {
     try {
       toast.loading("loading your account");
-      const data = await loginUserGoogle(credentialResponse);
+      const data = await userService.loginUserGoogle(credentialResponse);
       setTimeout(() => {}, 1000);
       document.cookie = `authToken=${data}`;
       toast.dismiss();
@@ -210,7 +211,7 @@ const Register: React.FC = () => {
         const toastId = toast.loading("Creating your account...");
 
         const registrationData = { ...formData };
-        await register({
+        await userService.register({
           ...registrationData,
           username: registrationData.username.trim(),
           email: registrationData.email.trim(),

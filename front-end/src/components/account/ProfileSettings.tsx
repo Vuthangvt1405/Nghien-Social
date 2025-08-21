@@ -1,17 +1,65 @@
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import ProfileForm from "./ProfileForm";
-import type { ProfileData } from "../../types/profile";
-import { sendOTPEmail, verifyOTPEmail } from "../../api/Client"; // Adjust import path as needed
+import type { ProfileData } from "../../api/types";
+import { userService } from "../../api/Client"; // Adjust import path as needed
+import toast from "react-hot-toast";
+import { useDispatch } from "react-redux";
+import { setUser } from "../../store/user/userSlice";
+import { useNavigate } from "react-router-dom";
 
 interface ProfileSettingsProps {
   profileData: ProfileData;
-  onProfileDataChange: (data: Partial<ProfileData>) => void;
 }
 
 const ProfileSettings: React.FC<ProfileSettingsProps> = ({
-  profileData,
-  onProfileDataChange,
+  profileData: initialProfileData,
 }) => {
+  const [profileData, setProfileData] = useState(initialProfileData);
+  const dispatch = useDispatch();
+  const navigate = useNavigate();
+
+  // Đồng bộ state với props khi props thay đổi
+  useEffect(() => {
+    setProfileData(initialProfileData);
+  }, [initialProfileData]);
+
+  const onProfileDataChange = (data: Partial<ProfileData>) => {
+    setProfileData((prev) => ({ ...prev, ...data }));
+  };
+
+  const handleSaveChanges = async (field: keyof ProfileData) => {
+    try {
+      // Hàm `updateProfile` giờ trả về trực tiếp dữ liệu người dùng đã được cập nhật.
+      const updatedUserData = await userService.updateProfile({
+        [field]: profileData[field],
+      });
+
+      console.log("Profile updated successfully:", updatedUserData);
+
+      // Dispatch action `setUser` để cập nhật Redux state với dữ liệu mới.
+      // Cookie đã được cập nhật bên trong hàm của userService.
+      dispatch(setUser(updatedUserData));
+
+      toast.success(`${field} updated successfully!`);
+
+      // Nếu username thay đổi, điều hướng đến trang profile mới
+      if (field === "username") {
+        navigate(`/info/${updatedUserData.username}`);
+      }
+    } catch (error: any) {
+      let errorMessage = `Failed to update ${field}.`;
+      // Kiểm tra message lỗi cụ thể từ API
+      if (error?.response?.data?.message) {
+        errorMessage = error.response.data.message;
+      } else if (error instanceof Error) {
+        // Lấy message lỗi chung
+        errorMessage = error.message;
+      }
+      toast.error(errorMessage);
+      console.error(`Update failed for ${field}:`, error);
+    }
+  };
+
   // OTP States
   const [isLoading, setIsLoading] = useState(false);
   const [showOtpPopup, setShowOtpPopup] = useState(false);
@@ -31,14 +79,16 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({
     setError("");
 
     try {
-      await sendOTPEmail(profileData.email);
+      await userService.sendOTPEmail(profileData.email);
       setShowOtpPopup(true);
       setSuccessMessage("OTP đã được gửi đến email của bạn!");
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error sending OTP:", err);
-      setError(
-        err.response?.data?.error || "Không thể gửi OTP. Vui lòng thử lại!"
-      );
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An unknown error occurred");
+      }
     } finally {
       setIsLoading(false);
     }
@@ -60,21 +110,23 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({
     setError("");
 
     try {
-      await verifyOTPEmail(profileData.email, parseInt(otp));
+      await userService.verifyOTPEmail(profileData.email, parseInt(otp));
       setSuccessMessage("Xác thực thành công!");
       setShowOtpPopup(false);
       setOtp("");
 
       // Update verified status in profile data
-      onProfileDataChange({ verified: true });
+      onProfileDataChange({ verify: true });
 
       // Clear success message after 3 seconds
       setTimeout(() => setSuccessMessage(""), 3000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       console.error("Error verifying OTP:", err);
-      setError(
-        err.response?.data?.message || "OTP không đúng. Vui lòng thử lại!"
-      );
+      if (err instanceof Error) {
+        setError(err.message);
+      } else {
+        setError("An unknown error occurred");
+      }
     } finally {
       setIsVerifying(false);
     }
@@ -96,7 +148,7 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({
   return (
     <div className="space-y-6">
       {/* Verification Status */}
-      {profileData.verified ? (
+      {profileData.verify ? (
         <div className="p-4 mb-6 rounded-lg bg-green-50">
           <div className="flex items-center gap-3">
             <div className="flex items-center justify-center w-5 h-5 bg-green-600 rounded-full">
@@ -179,17 +231,26 @@ const ProfileSettings: React.FC<ProfileSettingsProps> = ({
         <ProfileForm
           profileData={profileData}
           onProfileDataChange={onProfileDataChange}
+          onSave={handleSaveChanges}
         />
       </div>
 
       <div className="p-6 bg-white rounded-lg shadow-lg">
         <h2 className="mb-4 text-xl font-semibold">Bio & Description</h2>
         <textarea
-          value={profileData.description || ""}
+          value={profileData?.description ?? ""}
           onChange={(e) => onProfileDataChange({ description: e.target.value })}
           placeholder="Tell us about yourself..."
           className="w-full h-32 p-3 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-orange-500"
         />
+        <div className="flex justify-end mt-4">
+          <button
+            onClick={() => handleSaveChanges("description")}
+            className="px-4 py-2 text-white transition bg-orange-500 rounded-md hover:bg-orange-600"
+          >
+            Save Description
+          </button>
+        </div>
       </div>
 
       {/* OTP Popup */}

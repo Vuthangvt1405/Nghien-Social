@@ -1,9 +1,9 @@
 import React from "react";
-import type { ProfileData } from "../../types/profile";
+import type { ProfileData } from "../../api/types";
 import ClickableImage from "./ClickableImage";
 import images from "../../constants";
 import { useQuery } from "@tanstack/react-query";
-import { getUserStat } from "../../api/Client";
+import { userService } from "../../api/Client";
 
 interface AccountHeaderProps {
   profileData: ProfileData;
@@ -22,9 +22,11 @@ const AccountHeader: React.FC<AccountHeaderProps> = ({
 }) => {
   const { data: statsData } = useQuery({
     queryKey: ["userStat", username],
-    queryFn: () => getUserStat(username!).then((res) => res.data),
+    queryFn: () => userService.getUserStat(username!).then((res) => res.data),
     enabled: !!username,
   });
+
+  console.log(profileData.avatar);
   return (
     <div className="relative mb-6 overflow-hidden bg-white rounded-lg shadow-lg">
       {/* Cover Image Section */}

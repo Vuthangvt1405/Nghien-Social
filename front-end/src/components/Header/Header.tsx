@@ -9,10 +9,12 @@ import { useEffect } from "react";
 import AvatarDropdown from "./AvatarDropdown";
 import SearchBar from "./SearchBar";
 import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 
 const Header = () => {
   const typeDevice = useSelector((state: RootState) => state.responsive);
   const info = useSelector((state: RootState) => state.user);
+  const navigate = useNavigate();
 
   const dispatch = useDispatch();
 
@@ -71,10 +73,13 @@ const Header = () => {
         {/* Right section */}
         <div className="flex items-center space-x-2">
           {/* Create post button */}
-          <button className="items-center hidden px-3 py-1 space-x-1 text-sm font-medium text-gray-700 rounded-md lg:flex hover:bg-gray-100">
+          <Link
+            to="/submit"
+            className="items-center hidden px-3 py-1 space-x-1 text-sm font-medium text-gray-700 rounded-md lg:flex hover:bg-gray-100"
+          >
             <HiOutlinePlusCircle size={20} />
             <span>Create</span>
-          </button>
+          </Link>
 
           {/* Notifications */}
           <button className="p-2 text-gray-600 rounded-md hover:bg-gray-100">
@@ -99,7 +104,7 @@ const Header = () => {
             </div>
           ) : (
             <AvatarDropdown
-              avatarSrc={info.avatar}
+              avatarSrc={info.avatar || ""}
               options={[
                 { label: "Account", to: `/info/${info.username}` },
                 { label: "Settings", to: "/settings" },
