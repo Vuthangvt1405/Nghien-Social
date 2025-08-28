@@ -13,11 +13,11 @@ export const paginationMiddleware = async (
 
   const offset = (page - 1) * finalLimit;
 
-  req.pagination = {
-    currentPage: page,
-    pageSize: finalLimit,
-    offset,
-  };
+  // req.pagination = {
+  //   currentPage: page,
+  //   pageSize: finalLimit,
+  //   offset,
+  // };
 
   next();
 };

@@ -57,7 +57,7 @@ const PostCard = ({ item }) => {
   };
 
   return (
-    <div className="max-w-xl my-6 overflow-hidden bg-white rounded-lg shadow-md">
+    <div className="max-w-xl my-6 overflow-hidden bg-white rounded-lg shadow-md min-w-[75%]">
       {/* Header */}
       <Link
         to={`/post/${item.slug}`}

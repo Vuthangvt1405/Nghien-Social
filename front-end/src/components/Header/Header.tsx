@@ -75,7 +75,7 @@ const Header = () => {
           {/* Create post button */}
           <Link
             to="/submit"
-            className="items-center hidden px-3 py-1 space-x-1 text-sm font-medium text-gray-700 rounded-md lg:flex hover:bg-gray-100"
+            className="flex items-center px-3 py-1 space-x-1 text-sm font-medium text-gray-700 rounded-md hover:bg-gray-100"
           >
             <HiOutlinePlusCircle size={20} />
             <span>Create</span>

@@ -1,6 +1,7 @@
 import { Request, Response, NextFunction } from "express";
 import { CryptoUtils } from "../utility/CryptoUtils";
 import { Post } from "../models";
+import { RequestExtendUser } from "../dto";
 
 export const encryptContentPost = async (
   req: Request,
@@ -38,7 +39,7 @@ export const decryptContentPost = async (
 };
 
 export const turnOnEncryptionPost = async (
-  req: Request,
+  req: RequestExtendUser,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -46,6 +47,13 @@ export const turnOnEncryptionPost = async (
     const postId = parseInt(req.params.postId);
     const { key } = req.body;
     const findedPost = await Post.findById(postId);
+    console.log(findedPost, req.user);
+    if (findedPost.ownerId !== req.user?.id) {
+      res
+        .status(403)
+        .json({ message: "You are not authorized to modify this post" });
+      return;
+    }
     if (!findedPost) {
       res.status(404).json({ message: "Post not found" });
       return;
@@ -70,7 +78,7 @@ export const turnOnEncryptionPost = async (
 };
 
 export const turnOffEncryptionPost = async (
-  req: Request,
+  req: RequestExtendUser,
   res: Response,
   next: NextFunction
 ): Promise<void> => {
@@ -80,6 +88,12 @@ export const turnOffEncryptionPost = async (
     const findedPost = await Post.findById(postId);
     if (!findedPost) {
       res.status(404).json({ message: "Post not found" });
+      return;
+    }
+    if (findedPost.ownerId !== req.user?.id) {
+      res
+        .status(403)
+        .json({ message: "You are not authorized to modify this post" });
       return;
     }
     if (findedPost.isLocked == true) {

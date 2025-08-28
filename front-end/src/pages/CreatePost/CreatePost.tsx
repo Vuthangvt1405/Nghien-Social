@@ -17,15 +17,14 @@ import {
   LockOutlined,
   UnlockOutlined,
 } from "@ant-design/icons";
-import type { RcFile } from "antd/es/upload/interface";
 import Layout from "../../components/Layout";
 import { Editor } from "@tinymce/tinymce-react";
 import { useSelector } from "react-redux";
 import type { RootState } from "../../store/store";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
+import axios, { type AxiosResponse } from "axios";
 import postService from "../../api/postService";
-import OtherService from "../../api/OtherService";
+import toast from "react-hot-toast";
 
 const { TextArea } = Input;
 
@@ -45,15 +44,20 @@ const CreatePost: React.FC = () => {
   const info = useSelector((state: RootState) => state.user);
   const navigate = useNavigate();
 
-  const onFinish = async (values: any) => {
+  const onFinish = async (values: {
+    title: string;
+    caption?: string;
+    content: string;
+    community: string;
+    tags?: string[];
+    isLocked: boolean;
+    password?: string;
+  }) => {
     const postData = {
       ...values,
       cover: coverImageUrl,
-      authorId: info.id, // Giả sử `info` từ Redux có id của người dùng
+      authorId: info.id,
     };
-
-    console.log("Submitting post data: ", postData);
-
     try {
       // Định nghĩa kiểu dữ liệu trả về từ API
       type CreatePostResponse = {
@@ -62,10 +66,22 @@ const CreatePost: React.FC = () => {
         post?: { id: string | number };
       };
 
-      // QUAN TRỌNG: Thay thế '/api/v1/posts' bằng endpoint tạo bài viết thực tế của bạn
-      const response = await postService.createPost(postData);
+      const response: AxiosResponse<CreatePostResponse> =
+        await postService.createPost(postData);
 
-      const data = response.data as CreatePostResponse;
+      console.log(isLocked);
+      console.log("Create post response:", response);
+
+      if (isLocked) {
+        // Handle locked post case
+        await postService.encryptPostContent(
+          response.data?.post?.id as number,
+          postData.password as string
+        );
+        console.log("Post content encrypted", response.data?.post?.id);
+      }
+
+      const data = response.data;
 
       if (data.success) {
         message.success("Tạo bài viết thành công!");
@@ -104,14 +120,35 @@ const CreatePost: React.FC = () => {
   // };
 
   const customUploadRequest = async (options) => {
-    const { file } = options;
+    const { file, onSuccess, onError } = options;
+    try {
+      const formData = new FormData();
+      formData.append("source", file);
 
-    const formData = new FormData();
-    formData.append("source", file);
+      const url = await axios.post(
+        "http://localhost:3000/api/getUrl",
+        formData
+      );
+      console.log("Image URL:", url);
+      setCoverImageUrl(url.data.data.display_url);
+      onSuccess(url, file);
+    } catch (err) {
+      console.error("Error uploading image:", err);
+      message.error("Failed to upload image. Please try again.");
+      onError(err);
+    }
+  };
 
-    const url = await axios.post("http://localhost:3000/api/getUrl", formData);
-    console.log("Image URL:", url);
-    setCoverImageUrl(url);
+  const handlePublish = async () => {
+    try {
+      const values = await form.validateFields();
+      console.log("Form values:", values);
+      onFinish(values);
+      toast.success("Post published successfully!");
+    } catch (err) {
+      toast.error("Please fill in the required fields.");
+      console.error("Form validation error:", err);
+    }
   };
 
   useEffect(() => {
@@ -224,7 +261,13 @@ const CreatePost: React.FC = () => {
                   className="shadow-lg"
                 >
                   <Form.Item>
-                    <Button type="primary" htmlType="submit" block size="large">
+                    <Button
+                      onClick={handlePublish}
+                      type="primary"
+                      htmlType="submit"
+                      block
+                      size="large"
+                    >
                       Publish Post
                     </Button>
                   </Form.Item>
@@ -295,7 +338,7 @@ const CreatePost: React.FC = () => {
                     <Switch
                       checkedChildren={<LockOutlined />}
                       unCheckedChildren={<UnlockOutlined />}
-                      onChange={setIsLocked}
+                      onChange={() => setIsLocked(!isLocked)}
                     />
                   </Form.Item>
 

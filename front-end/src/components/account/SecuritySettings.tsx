@@ -3,12 +3,15 @@ import { userService } from "../../api/Client";
 import toast from "react-hot-toast";
 import Cookies from "js-cookie";
 import { useNavigate } from "react-router-dom";
+import { useDispatch } from "react-redux";
+import { clearUser } from "../../store/user/userSlice";
 
 const SecuritySettings: React.FC = () => {
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [twoFactorEnabled, setTwoFactorEnabled] = useState(false);
   const navigate = useNavigate();
+  const dispatch = useDispatch();
 
   const handleSaveChanges = async () => {
     if (newPassword && !currentPassword) {
@@ -18,12 +21,18 @@ const SecuritySettings: React.FC = () => {
 
     if (newPassword) {
       try {
-        // await userService.changePassword(currentPassword, newPassword);
+        await userService.changePassword(currentPassword, newPassword);
         toast.success("Password updated successfully! You will be logged out.");
         Cookies.remove("authToken");
+        dispatch(clearUser());
         navigate("/login");
       } catch (error) {
-        toast.error("Failed to update password.");
+        if (error instanceof Error) {
+          toast.error(error.response.data.message);
+        } else {
+          toast.error("An unexpected error occurred.");
+        }
+        console.log(error);
       }
     }
 

@@ -454,7 +454,7 @@ export const changePassword = async (
   next: NextFunction
 ) => {
   try {
-    const { newPassword } = req.body;
+    const { newPassword, oldPassword } = req.body;
     const userId = req.user?.id;
     if (!userId || userId == undefined) {
       res.status(401).json({ message: "User not authenticated" });
@@ -469,9 +469,14 @@ export const changePassword = async (
       return;
     }
 
+    if (!(await PasswordUtils.comparePassword(oldPassword, user.password))) {
+      res.status(401).json({ message: "Old password is incorrect" });
+      return;
+    }
+
     user.password = await PasswordUtils.hashPassword(newPassword);
     const result = await user.save();
-    res.status(200).json({ message: "Password changed successfully", result });
+    res.status(200).json({ message: "Password changed successfully" });
   } catch (err) {
     next(err);
   }

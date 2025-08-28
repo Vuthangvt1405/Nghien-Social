@@ -172,7 +172,6 @@ const Login: React.FC = () => {
         const userProfile = await dispatch(fetchUserProfile()).unwrap();
         console.log("User profile fetched successfully:", userProfile);
 
-        toast.dismiss(toastId);
         toast.success("Welcome back! Login successful");
 
         // Chuyển hướng sau khi đăng nhập và fetch thành công

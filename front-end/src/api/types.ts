@@ -35,3 +35,15 @@ export interface UserState {
   status: "idle" | "loading" | "succeeded" | "failed";
   error: string | null;
 }
+
+export interface CreatePostData {
+  title: string;
+  caption?: string;
+  content: string;
+  community: string;
+  tags?: string[];
+  isLocked: boolean;
+  password?: string;
+  cover: string | null;
+  authorId: number;
+}

@@ -43,19 +43,30 @@ export class User {
     email?: string,
     username?: string
   ): Promise<User | null> {
-    let rows: any[];
-    if (!email && !username) {
-      const [queryRows] = await pool.query("SELECT * FROM users WHERE id = ?", [
-        id,
-      ]);
-      rows = queryRows as any[];
-    } else {
-      const [queryRows] = await pool.query(
-        "SELECT * FROM users WHERE email = ? OR username = ?",
-        [email, username]
-      );
-      rows = queryRows as any[];
+    const conditions: string[] = [];
+    const params: (string | number)[] = [];
+
+    if (id !== undefined) {
+      conditions.push("id = ?");
+      params.push(id);
     }
+    if (email !== undefined) {
+      conditions.push("email = ?");
+      params.push(email);
+    }
+    if (username !== undefined) {
+      conditions.push("username = ?");
+      params.push(username);
+    }
+
+    if (conditions.length === 0) {
+      return null;
+    }
+
+    const query = `SELECT * FROM users WHERE ${conditions.join(
+      " OR "
+    )} LIMIT 1`;
+    const [rows] = (await pool.query(query, params)) as any[];
 
     if (rows.length === 0) {
       return null;
@@ -79,19 +90,21 @@ export class User {
 
   static async findAll(): Promise<User[]> {
     const [rows]: any = await pool.query("SELECT * FROM users");
-    return rows.map((user: any) => {
-      const { type, ...info } = user;
-      return new User(
-        info.username,
-        info.email,
-        info.password,
-        info.type,
-        info.avatar,
-        info.cover,
-        info.id,
-        info.admin
-      );
-    });
+    return rows.map(
+      (user: any) =>
+        new User(
+          user.username,
+          user.email,
+          user.password,
+          user.type,
+          user.avatar,
+          user.cover,
+          user.description,
+          user.id,
+          user.admin,
+          user.verified
+        )
+    );
   }
 
   static async create(
@@ -107,7 +120,16 @@ export class User {
       [name, email, password, avatar, cover, type]
     );
     const userId = result.insertId;
-    return new User(name, email, password, type, avatar, cover, userId);
+    return new User(
+      name,
+      email,
+      password,
+      type,
+      avatar,
+      cover,
+      undefined,
+      userId
+    );
   }
 
   async toggleSetAdmin() {
@@ -184,7 +206,9 @@ export class User {
     return result;
   }
 
-  static async userStats(username: string): Promise<statObject | statObject[]> {
+  static async userStats(
+    username?: string
+  ): Promise<statObject | statObject[]> {
     let query = `SELECT
     u.id AS user_id,
     u.username,
@@ -202,8 +226,7 @@ LEFT JOIN
 
     const params: any[] = [];
 
-    // Validate và convert id
-    if (typeof username === "string") {
+    if (username) {
       query += ` WHERE u.username = ?`;
       params.push(username);
     }
@@ -212,8 +235,7 @@ LEFT JOIN
 
     const [rows]: any = await pool.query(query, params);
 
-    // Nếu có username cụ thể
-    if (username !== undefined && username !== null && username !== "") {
+    if (username) {
       if (rows.length === 0) {
         throw new Error("User not found");
       }

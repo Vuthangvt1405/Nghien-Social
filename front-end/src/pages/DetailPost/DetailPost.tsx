@@ -106,8 +106,10 @@ const DetailPost = () => {
         "blockquote",
         "code",
         "pre",
+        "span",
+        "div",
       ],
-      ALLOWED_ATTR: ["href", "src", "alt", "title", "target", "class"],
+      ALLOWED_ATTR: ["href", "src", "alt", "title", "target", "class", "style"],
       ALLOW_DATA_ATTR: false,
     });
   };

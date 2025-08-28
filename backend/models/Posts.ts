@@ -44,13 +44,11 @@ export class Post {
     caption: string,
     content: string,
     cover: string,
-    isLocked: boolean = false
+    slug: string
   ): Promise<Post> {
     // Simulate database creation logic
-    let sql = `INSERT INTO posts (ownerId, title, caption, content, slug, cover, isLocked, created_at, updated_at)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`;
-
-    let slug = slugify(`${title + new Date()}`);
+    let sql = `INSERT INTO posts (ownerId, title, caption, content, slug, cover, created_at, updated_at)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)`;
 
     let values = [
       ownerId,
@@ -59,7 +57,6 @@ export class Post {
       content,
       slug,
       cover,
-      isLocked,
       new Date(),
       new Date(),
     ];

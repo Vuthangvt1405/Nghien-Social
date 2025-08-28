@@ -157,14 +157,17 @@ class UserService {
     return apiService.post("/users/OTP/email/verify", { email, otp });
   }
 
-  changePassword(password: string, credential: string) {
+  changePassword(oldPassword: string, password: string) {
     return apiService.patch(
       "/users/change-password",
-      { newPassword: password },
+      {
+        newPassword: password,
+        oldPassword,
+      },
       {
         headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${credential}`,
+          Authorization: `Bearer ${Cookies.get("authToken")}`,
         },
       }
     );

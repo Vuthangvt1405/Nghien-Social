@@ -4,6 +4,7 @@ import { Post } from "../models";
 import { Token } from "../utility";
 import multer from "multer";
 import type FormDataType from "form-data";
+import slugify from "slugify";
 
 interface UploadResponse {
   status_code: number;
@@ -25,18 +26,15 @@ export const createPost = async (
   next: NextFunction
 ) => {
   try {
-    const { title, caption, cover, content, isLocked } = req.body;
+    const { title, caption, cover, content } = req.body;
     const ownerId = req.user?.id; // Assuming req.user is set by an auth middleware
-    await Post.create(
-      ownerId as number,
-      title,
-      caption,
-      content,
-      cover,
-      isLocked
-    );
+    let slug = slugify(`${title + new Date()}`);
+    console.log(123);
+    await Post.create(ownerId as number, title, caption, content, cover, slug);
+    const postData = await Post.findBySlug(slug);
     res.status(201).json({
       message: "Post created successfully",
+      post: postData[0],
     });
   } catch (error) {
     next(error);
