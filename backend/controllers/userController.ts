@@ -9,6 +9,7 @@ import type FormDataType from "form-data";
 import fetch from "node-fetch";
 import { userInfo } from "os";
 import { UserVerification } from "../models/UserVerification";
+import { decode } from "punycode";
 
 export const createUser = async (
   req: Request,
@@ -195,8 +196,12 @@ export const updateUser = async (
     }
 
     const user = await User.findOne(id);
+    const anotherUser = await User.findOne(undefined, undefined, username);
     if (!user) {
       res.status(404).json({ message: "User not found" });
+      return;
+    } else if (anotherUser && anotherUser.id !== user.id) {
+      res.status(409).json({ message: "Username is already taken" });
       return;
     }
 
@@ -430,19 +435,32 @@ export const getUserProfileByUsername = async (
 ) => {
   try {
     const { username } = req.params;
-    console.log("Fetching user profile for username (raw):", username);
-    const decodedUsername = decodeURIComponent(username).trim();
-    console.log(
-      "Fetching user profile for username (decoded):",
-      decodedUsername
-    );
-    const user = await User.findOne(undefined, undefined, `${decodedUsername}`);
-    if (!user) {
+    const profileUser = await User.findOne(undefined, undefined, username);
+
+    if (!profileUser) {
       res.status(404).json({ message: "User not found" });
       return;
     }
-    const { password, type, ...info } = user;
-    res.status(200).json(info);
+
+    const loggedInUser = req.user;
+    let isFollowed = false;
+
+    if (loggedInUser && loggedInUser.id !== profileUser.id) {
+      const loggedInUserInstance = await User.findOne(loggedInUser.id);
+
+      if (loggedInUserInstance) {
+        isFollowed = await loggedInUserInstance.checkUserFollowed(
+          Number(profileUser.id)
+        );
+      }
+    }
+
+    const { password, type, ...info } = profileUser;
+    const responseData = {
+      ...info,
+      isFollowed,
+    };
+    res.status(200).json(responseData);
   } catch (err) {
     next(err);
   }
@@ -500,6 +518,11 @@ export const handleFollowUser = async (
     const userToFollow = await User.findOne(undefined, undefined, username);
     if (!userToFollow) {
       res.status(404).json({ message: "User to follow not found" });
+      return;
+    }
+
+    if (userId == userToFollow.id) {
+      res.status(400).json({ message: "You cannot follow yourself." });
       return;
     }
 

@@ -31,8 +31,6 @@ export const authMiddleware = async (
         username: user.username,
         admin: Boolean(user.admin),
       };
-    } else {
-      throw new Error("Invalid token");
     }
     next();
   } catch (error) {

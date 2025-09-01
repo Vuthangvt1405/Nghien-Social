@@ -26,7 +26,6 @@ const AccountHeader: React.FC<AccountHeaderProps> = ({
     enabled: !!username,
   });
 
-  console.log(profileData.avatar);
   return (
     <div className="relative mb-6 overflow-hidden bg-white rounded-lg shadow-lg">
       {/* Cover Image Section */}
@@ -81,11 +80,13 @@ const AccountHeader: React.FC<AccountHeaderProps> = ({
                 }
               />
             ) : (
-              <img
-                src={profileData.avatar || images.avatarDemo}
-                alt="Avatar"
-                className="object-cover w-32 h-32 border-4 border-white rounded-full shadow-lg"
-              />
+              <div>
+                <img
+                  src={profileData.avatar || images.avatarDemo}
+                  alt="Avatar"
+                  className="object-cover w-32 h-32 border-4 border-white rounded-full shadow-lg"
+                />
+              </div>
             )}
 
             {/* Online Status Badge */}

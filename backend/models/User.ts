@@ -171,7 +171,41 @@ export class User {
     return result;
   }
 
-  // Example in JavaScript/TypeScript
+  async getAllUserHasFollowed(): Promise<User[]> {
+    const query = `
+      SELECT u.*
+      FROM users u
+      INNER JOIN follow f ON u.id = f.followedUserId
+      WHERE f.userId = ?
+    `;
+    const [rows]: any = await pool.query(query, [this.id]);
+    return rows.map(
+      (user: any) =>
+        new User(
+          user.username,
+          user.email,
+          user.password,
+          user.type,
+          user.avatar,
+          user.cover,
+          user.description,
+          user.id,
+          user.admin,
+          user.verified
+        )
+    );
+  }
+
+  async checkUserFollowed(id: number): Promise<boolean> {
+    const query = `
+      SELECT 1
+      FROM follow
+      WHERE userId = ? AND followedUserId = ?
+    `;
+    const [rows]: any = await pool.query(query, [this.id, id]);
+    console.log(this.id, id, rows);
+    return rows.length > 0;
+  }
 
   async followUser(followedId: number) {
     // --- FIX ---

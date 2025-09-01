@@ -22,7 +22,9 @@ const router = express.Router();
 //get user profile (info)
 router.route("/").get(getAllUsers);
 //get another profile but not update
-router.route("/profile/:username").get(getUserProfileByUsername);
+router
+  .route("/profile/:username")
+  .get(authMiddleware, getUserProfileByUsername);
 
 router
   .route("/upload-avatar")
